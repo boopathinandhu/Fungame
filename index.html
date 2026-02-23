@@ -2,213 +2,239 @@
 <html>
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Snake Egg Game</title>
-
+<title>Grammar Snake Pro</title>
 <style>
 body{
-  background:#9bbc0f;
-  text-align:center;
-  font-family:monospace;
-  margin:0;
+margin:0;
+background:#0a0a0a;
+color:white;
+font-family:Arial;
+text-align:center;
+overflow:hidden;
 }
-
-#scoreboard{
-  font-size:18px;
-  padding:10px;
-  color:#0f380f;
-  font-weight:bold;
-}
-
 canvas{
-  background:#8bac0f;
-  border:8px solid #306230;
-  display:block;
-  margin:auto;
+background:black;
+display:block;
+margin:auto;
+border:4px solid lime;
 }
-
-.controls{
-  margin-top:15px;
+#info{
+background:#111;
+padding:10px;
 }
-
-.btn{
-  width:60px;
-  height:60px;
-  font-size:22px;
-  margin:5px;
-  border-radius:10px;
-  border:none;
-  background:#306230;
-  color:white;
+.levelLocked{
+color:red;
 }
 </style>
 </head>
-
 <body>
 
-<div id="scoreboard">
-Score: <span id="score">0</span> |
-High: <span id="high">0</span>
+<h2>🐍 Grammar Snake Pro</h2>
+<canvas id="game" width="400" height="400"></canvas>
+
+<div id="info">
+<p id="levelText">Level 1: Tenses</p>
+<p id="scoreText">Score: 0</p>
+<p><b>Correct Sentence:</b> <span id="sentence"></span></p>
+<p><b>Tamil Meaning:</b> <span id="meaning"></span></p>
 </div>
 
-<canvas id="game" width="320" height="320"></canvas>
-
-<div class="controls">
-  <div>
-    <button class="btn" onclick="setDir('UP')">↑</button>
-  </div>
-  <div>
-    <button class="btn" onclick="setDir('LEFT')">←</button>
-    <button class="btn" onclick="setDir('DOWN')">↓</button>
-    <button class="btn" onclick="setDir('RIGHT')">→</button>
-  </div>
-</div>
+<audio id="bgm" loop>
+<source src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3" type="audio/mp3">
+</audio>
 
 <script>
 const canvas=document.getElementById("game");
 const ctx=canvas.getContext("2d");
 
-const box=16;
-let snake,dir,egg,score,speed,interval;
-let high=localStorage.getItem("snakeHigh")||0;
-document.getElementById("high").innerText=high;
+let box=20;
+let snake=[{x:200,y:200}];
+let dir="right";
+let speed=130;
 
-function init(){
-  snake=[{x:8*box,y:8*box}];
-  dir="RIGHT";
-  egg=randomEgg();
-  score=0;
-  speed=120;
-  document.getElementById("score").innerText=score;
-  start();
+let score=0;
+let completed=0;
+let level=1;
+
+let wordObjects=[];
+let correctOrder=[];
+let currentIndex=0;
+
+const levels={
+1:{
+name:"Tenses",
+data:[
+{sentence:"She is playing football",tamil:"அவள் கால்பந்து விளையாடுகிறாள்"},
+{sentence:"They went to school",tamil:"அவர்கள் பள்ளிக்கு சென்றார்கள்"},
+{sentence:"I will visit Chennai",tamil:"நான் சென்னை செல்வேன்"}
+]
+},
+2:{
+name:"Passive Voice",
+data:[
+{sentence:"The ball was kicked by him",tamil:"பந்து அவனால் அடிக்கப்பட்டது"},
+{sentence:"The cake was eaten by them",tamil:"கேக் அவர்கள் மூலம் சாப்பிடப்பட்டது"},
+{sentence:"A letter was written by her",tamil:"கடிதம் அவளால் எழுதப்பட்டது"}
+]
+},
+3:{
+name:"Indirect Speech",
+data:[
+{sentence:"He said that he was tired",tamil:"அவன் அவன் சோர்வாக இருந்ததாக சொன்னான்"},
+{sentence:"She told me that she was happy",tamil:"அவள் அவள் மகிழ்ச்சியாக இருந்ததாக சொன்னாள்"},
+{sentence:"They said that they would come",tamil:"அவர்கள் வருவதாக சொன்னார்கள்"}
+]
+}
+};
+
+function shuffle(a){
+for(let i=a.length-1;i>0;i--){
+let j=Math.floor(Math.random()*(i+1));
+[a[i],a[j]]=[a[j],a[i]];
+}
 }
 
-function randomEgg(){
-  return{
-    x:Math.floor(Math.random()*(canvas.width/box))*box,
-    y:Math.floor(Math.random()*(canvas.height/box))*box
-  }
-}
+function newSentence(){
+let list=levels[level].data;
+let random=list[Math.floor(Math.random()*list.length)];
 
-function setDir(d){
-  if(d==="LEFT"&&dir!=="RIGHT") dir="LEFT";
-  if(d==="UP"&&dir!=="DOWN") dir="UP";
-  if(d==="RIGHT"&&dir!=="LEFT") dir="RIGHT";
-  if(d==="DOWN"&&dir!=="UP") dir="DOWN";
-}
+correctOrder=random.sentence.split(" ");
+let words=[...correctOrder];
+shuffle(words);
 
-document.addEventListener("keydown",e=>{
-  if(e.key==="ArrowLeft") setDir("LEFT");
-  if(e.key==="ArrowUp") setDir("UP");
-  if(e.key==="ArrowRight") setDir("RIGHT");
-  if(e.key==="ArrowDown") setDir("DOWN");
+wordObjects=[];
+words.forEach(w=>{
+wordObjects.push({
+text:w,
+x:Math.floor(Math.random()*20)*box,
+y:Math.floor(Math.random()*20)*box
+});
 });
 
+currentIndex=0;
+document.getElementById("sentence").innerText=random.sentence;
+document.getElementById("meaning").innerText=random.tamil;
+document.getElementById("levelText").innerText="Level "+level+": "+levels[level].name;
+}
+
+function speak(word){
+let u=new SpeechSynthesisUtterance(word);
+u.lang="en-US";
+speechSynthesis.speak(u);
+}
+
 function drawSnake(){
-  for(let i=0;i<snake.length;i++){
-    ctx.fillStyle="#0f380f";
-    ctx.beginPath();
-    ctx.arc(
-      snake[i].x+box/2,
-      snake[i].y+box/2,
-      box/2-1,
-      0,
-      Math.PI*2
-    );
-    ctx.fill();
-
-    // Snake eyes (only for head)
-    if(i===0){
-      ctx.fillStyle="white";
-      ctx.beginPath();
-      ctx.arc(snake[i].x+5,snake[i].y+5,2,0,Math.PI*2);
-      ctx.arc(snake[i].x+11,snake[i].y+5,2,0,Math.PI*2);
-      ctx.fill();
-    }
-  }
+snake.forEach((s,i)=>{
+ctx.fillStyle=i==0?"#00ff00":"#009900";
+ctx.beginPath();
+ctx.arc(s.x+10,s.y+10,10,0,2*Math.PI);
+ctx.fill();
+});
 }
 
-function drawEgg(){
-  ctx.fillStyle="white";
-  ctx.beginPath();
-  ctx.ellipse(
-    egg.x+box/2,
-    egg.y+box/2,
-    box/2-2,
-    box/2-4,
-    0,0,Math.PI*2
-  );
-  ctx.fill();
+function draw(){
+ctx.clearRect(0,0,400,400);
+
+drawSnake();
+
+wordObjects.forEach(obj=>{
+ctx.fillStyle="red";
+ctx.fillRect(obj.x,obj.y,box,box);
+ctx.fillStyle="white";
+ctx.font="10px Arial";
+ctx.fillText(obj.text,obj.x+1,obj.y+15);
+});
+
+let head={x:snake[0].x,y:snake[0].y};
+
+if(dir=="right") head.x+=box;
+if(dir=="left") head.x-=box;
+if(dir=="up") head.y-=box;
+if(dir=="down") head.y+=box;
+
+for(let i=0;i<wordObjects.length;i++){
+if(head.x==wordObjects[i].x && head.y==wordObjects[i].y){
+
+if(wordObjects[i].text==correctOrder[currentIndex]){
+speak(wordObjects[i].text);
+snake.push({});
+currentIndex++;
+wordObjects.splice(i,1);
+
+if(currentIndex==correctOrder.length){
+score++;
+completed++;
+document.getElementById("scoreText").innerText="Score: "+score;
+
+if(completed>=3){
+level++;
+completed=0;
+if(!levels[level]){
+alert("🏆 You Completed All Levels!");
+return;
+}
 }
 
-function gameLoop(){
-  ctx.fillStyle="#8bac0f";
-  ctx.fillRect(0,0,canvas.width,canvas.height);
-
-  drawSnake();
-  drawEgg();
-
-  let headX=snake[0].x;
-  let headY=snake[0].y;
-
-  if(dir==="LEFT") headX-=box;
-  if(dir==="UP") headY-=box;
-  if(dir==="RIGHT") headX+=box;
-  if(dir==="DOWN") headY+=box;
-
-  if(headX<0||headY<0||
-     headX>=canvas.width||headY>=canvas.height||
-     collision(headX,headY)){
-      gameOver();
-      return;
-  }
-
-  let newHead={x:headX,y:headY};
-
-  if(headX===egg.x&&headY===egg.y){
-    score++;
-    document.getElementById("score").innerText=score;
-
-    if(score%5===0&&speed>60){
-      speed-=10;
-      restartSpeed();
-    }
-
-    egg=randomEgg();
-  }else{
-    snake.pop();
-  }
-
-  snake.unshift(newHead);
+newSentence();
+}
+}else{
+alert("❌ Wrong Word!");
+resetGame();
+}
+}
 }
 
-function collision(x,y){
-  for(let i=0;i<snake.length;i++){
-    if(x===snake[i].x&&y===snake[i].y) return true;
-  }
-  return false;
+snake.pop();
+snake.unshift(head);
+
+if(head.x<0||head.y<0||head.x>=400||head.y>=400){
+resetGame();
+}
 }
 
-function gameOver(){
-  if(score>high){
-    high=score;
-    localStorage.setItem("snakeHigh",high);
-    document.getElementById("high").innerText=high;
-  }
-  alert("Game Over! Score: "+score);
-  clearInterval(interval);
-  init();
+function resetGame(){
+snake=[{x:200,y:200}];
+score=0;
+completed=0;
+document.getElementById("scoreText").innerText="Score: 0";
+newSentence();
 }
 
-function start(){
-  interval=setInterval(gameLoop,speed);
+canvas.addEventListener("touchstart",handleTouchStart,false);
+canvas.addEventListener("touchmove",handleTouchMove,false);
+
+let xDown=null;
+let yDown=null;
+
+function handleTouchStart(evt){
+xDown=evt.touches[0].clientX;
+yDown=evt.touches[0].clientY;
 }
 
-function restartSpeed(){
-  clearInterval(interval);
-  interval=setInterval(gameLoop,speed);
+function handleTouchMove(evt){
+if(!xDown||!yDown) return;
+
+let xUp=evt.touches[0].clientX;
+let yUp=evt.touches[0].clientY;
+
+let xDiff=xDown-xUp;
+let yDiff=yDown-yUp;
+
+if(Math.abs(xDiff)>Math.abs(yDiff)){
+if(xDiff>0) dir="left";
+else dir="right";
+}else{
+if(yDiff>0) dir="up";
+else dir="down";
 }
 
-init();
+xDown=null;
+yDown=null;
+}
+
+document.getElementById("bgm").play();
+newSentence();
+setInterval(draw,speed);
 </script>
 
 </body>
